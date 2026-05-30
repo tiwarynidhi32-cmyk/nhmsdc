@@ -1,0 +1,10 @@
+{
+  "name": "Remix: Ayushman Bharat National Health HMS",
+  "description": "Comprehensive Hospital Management System compliant with ABDM, PM-JAY Cashless Claims, ABHA verification, Scan \u0026 Share, and FHIR standard APIs.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
