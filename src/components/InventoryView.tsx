@@ -30,11 +30,26 @@ import {
   ClipboardList
 } from "lucide-react";
 import { InventoryItem, Vendor, GoodsReceivedNote } from "../types";
+import { INITIAL_INVENTORY_ITEMS, INITIAL_VENDORS, INITIAL_GRNS } from "../mockData";
 
 export default function InventoryView() {
-  const [items, setItems] = useState<InventoryItem[]>([]);
-  const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [grns, setGrns] = useState<GoodsReceivedNote[]>([]);
+  const [items, setItems] = useState<InventoryItem[]>(() => {
+    const saved = localStorage.getItem("hms_inventory_items");
+    return saved ? JSON.parse(saved) : INITIAL_INVENTORY_ITEMS;
+  });
+  const [vendors, setVendors] = useState<Vendor[]>(() => {
+    const saved = localStorage.getItem("hms_vendors");
+    return saved ? JSON.parse(saved) : INITIAL_VENDORS;
+  });
+  const [grns, setGrns] = useState<GoodsReceivedNote[]>(() => {
+    const saved = localStorage.getItem("hms_grns");
+    return saved ? JSON.parse(saved) : INITIAL_GRNS;
+  });
+
+  // Sync to localStorage
+  useEffect(() => { localStorage.setItem("hms_inventory_items", JSON.stringify(items)); }, [items]);
+  useEffect(() => { localStorage.setItem("hms_vendors", JSON.stringify(vendors)); }, [vendors]);
+  useEffect(() => { localStorage.setItem("hms_grns", JSON.stringify(grns)); }, [grns]);
   
   // Outer Workspace Navigation
   const [activeTab, setActiveTab] = useState<"items" | "grn" | "vendors">("items");
@@ -49,7 +64,9 @@ export default function InventoryView() {
   const [stockSortedBy, setStockSortedBy] = useState<"name" | "stockAsc" | "stockDesc" | "expiry">("name");
 
   // Form states and builders
-  const [issueItemId, setIssueItemId] = useState("");
+  const [issueItemId, setIssueItemId] = useState(() => {
+    return items[0]?.id || "";
+  });
   const [issueQuantity, setIssueQuantity] = useState(10);
   const [issueDept, setIssueDept] = useState("OPD General Ward");
   const [issueTechnicianId, setIssueTechnicianId] = useState("HPR-7740-9102");
@@ -109,7 +126,9 @@ export default function InventoryView() {
   // New GRN states
   const [grnNum, setGrnNum] = useState("");
   const [grnPO, setGrnPO] = useState("");
-  const [grnVendor, setGrnVendor] = useState("");
+  const [grnVendor, setGrnVendor] = useState(() => {
+    return vendors[0]?.name || "";
+  });
   const [grnItemName, setGrnItemName] = useState("");
   const [grnItemQty, setGrnItemQty] = useState(100);
   const [grnItemPrice, setGrnItemPrice] = useState(25);
@@ -122,7 +141,9 @@ export default function InventoryView() {
   const [newItemName, setNewItemName] = useState("");
   const [newItemCategory, setNewItemCategory] = useState<'Critical Consumables' | 'Surgical Instruments' | 'Personal Protective Equipment' | 'General Medicines' | 'Anesthetics'>("Critical Consumables");
   const [newItemStock, setNewItemStock] = useState<number>(200);
-  const [newItemVendorName, setNewItemVendorName] = useState("");
+  const [newItemVendorName, setNewItemVendorName] = useState(() => {
+    return vendors[0]?.name || "";
+  });
   const [newItemUnitCost, setNewItemUnitCost] = useState<number>(45);
   const [newItemReorder, setNewItemReorder] = useState<number>(50);
   const [newItemBatch, setNewItemBatch] = useState("B-DIR-66");
@@ -153,7 +174,9 @@ export default function InventoryView() {
   ]);
 
   // PO Creation Form State
-  const [poVendor, setPoVendor] = useState("");
+  const [poVendor, setPoVendor] = useState(() => {
+    return vendors[0]?.name || "";
+  });
   const [poItemName, setPoItemName] = useState("");
   const [poQty, setPoQty] = useState<number>(500);
   const [poPrice, setPoPrice] = useState<number>(35);
@@ -167,7 +190,9 @@ export default function InventoryView() {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   // CDSCO Gateway simulator states
-  const [cdscoSelectedVendor, setCdscoSelectedVendor] = useState("");
+  const [cdscoSelectedVendor, setCdscoSelectedVendor] = useState(() => {
+    return vendors[0]?.id || "";
+  });
   const [cdscoCustomId, setCdscoCustomId] = useState("");
   const [cdscoInspectLog, setCdscoInspectLog] = useState<string[]>([]);
   const [cdscoStatus, setCdscoStatus] = useState<"idle" | "verifying" | "certified" | "failed">("idle");
@@ -176,23 +201,28 @@ export default function InventoryView() {
   // Load backend data helper
   const loadData = async () => {
     try {
+      const safeJsonFetch = async (url: string, currentFallback: any) => {
+        try {
+          const r = await fetch(url);
+          if (!r.ok) return currentFallback;
+          const contentType = r.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            return await r.json();
+          }
+          return currentFallback;
+        } catch {
+          return currentFallback;
+        }
+      };
+
       const [iRes, vRes, gRes] = await Promise.all([
-        fetch("/api/inventory").then(r => r.json()),
-        fetch("/api/vendors").then(r => r.json()),
-        fetch("/api/grn").then(r => r.json())
+        safeJsonFetch("/api/inventory", items),
+        safeJsonFetch("/api/vendors", vendors),
+        safeJsonFetch("/api/grn", grns)
       ]);
       setItems(iRes);
       setVendors(vRes);
       setGrns(gRes);
-      if (iRes.length > 0) {
-        setIssueItemId(iRes[0].id);
-      }
-      if (vRes.length > 0) {
-        setGrnVendor(vRes[0].name);
-        setPoVendor(vRes[0].name);
-        setCdscoSelectedVendor(vRes[0].id);
-        setNewItemVendorName(vRes[0].name);
-      }
     } catch (err) {
       console.error("Failed to load inventory stack", err);
     }
